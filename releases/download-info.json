@@ -1,0 +1,25 @@
+{
+  "name": "JARVIS",
+  "version": "1.0.0",
+  "versionCode": 1,
+  "package": "com.jarvis.ai",
+  "minSdkVersion": 24,
+  "targetSdkVersion": 34,
+  "permissionsCount": 12,
+  "permissions": [
+    "android.permission.RECORD_AUDIO",
+    "android.permission.CAMERA",
+    "android.permission.ACCESS_FINE_LOCATION",
+    "android.permission.READ_CONTACTS",
+    "android.permission.CALL_PHONE",
+    "android.permission.SEND_SMS",
+    "android.permission.MANAGE_EXTERNAL_STORAGE",
+    "android.permission.BIND_ACCESSIBILITY_SERVICE",
+    "android.permission.BIND_NOTIFICATION_LISTENER_SERVICE",
+    "android.permission.SYSTEM_ALERT_WINDOW",
+    "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
+    "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+    "android.permission.RECEIVE_BOOT_COMPLETED"
+  ],
+  "apkOutputPath": "android/app/build/outputs/apk/release/app-release.apk"
+}

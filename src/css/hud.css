@@ -1,0 +1,72 @@
+/* ==========================================================================
+   JARVIS STARK-TECH HUD STYLING
+   High-contrast neon cyan, crimson, amber and glassmorphism styling
+   ========================================================================== */
+
+/* Subtle Stark HUD Grid Overlay */
+.hud-grid {
+  background-image: 
+    linear-gradient(to right, rgba(255, 30, 66, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 30, 66, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Glassmorphism Stark Panels */
+.glass-panel {
+  background: rgba(18, 2, 7, 0.72);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 30, 66, 0.22);
+}
+
+.glass-pill-hud {
+  background: rgba(30, 4, 12, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 30, 66, 0.32);
+}
+
+/* HUD Reticle Corners */
+.reticle-corner-tl {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 12px;
+  height: 12px;
+  border-top: 2px solid #ff1e42;
+  border-left: 2px solid #ff1e42;
+  pointer-events: none;
+}
+
+.reticle-corner-tr {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 12px;
+  height: 12px;
+  border-top: 2px solid #ff1e42;
+  border-right: 2px solid #ff1e42;
+  pointer-events: none;
+}
+
+.reticle-corner-bl {
+  position: absolute;
+  bottom: -2px;
+  left: -2px;
+  width: 12px;
+  height: 12px;
+  border-bottom: 2px solid #ff1e42;
+  border-left: 2px solid #ff1e42;
+  pointer-events: none;
+}
+
+.reticle-corner-br {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 12px;
+  height: 12px;
+  border-bottom: 2px solid #ff1e42;
+  border-right: 2px solid #ff1e42;
+  pointer-events: none;
+}

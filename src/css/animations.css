@@ -1,0 +1,90 @@
+/* ==========================================================================
+   JARVIS GPU-ACCELERATED ANIMATIONS
+   Ultra-smooth keyframes for Arc Reactor, waveform pulses & ambient glowing
+   ========================================================================== */
+
+@keyframes spinClockwise {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spinCounterClockwise {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes corePulseSmooth {
+  0%, 100% {
+    transform: scale(0.96);
+    filter: drop-shadow(0 0 25px rgba(255, 30, 66, 0.8)) drop-shadow(0 0 50px rgba(255, 30, 66, 0.4));
+  }
+  50% {
+    transform: scale(1.04);
+    filter: drop-shadow(0 0 35px rgba(255, 30, 66, 0.95)) drop-shadow(0 0 75px rgba(255, 30, 66, 0.6));
+  }
+}
+
+@keyframes plasmaGlow {
+  0%, 100% {
+    opacity: 0.85;
+    transform: scale(0.97);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes ambientPulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.1);
+  }
+}
+
+.animate-spin-cw-slow {
+  animation: spinClockwise 28s linear infinite;
+  will-change: transform;
+}
+
+.animate-spin-ccw-slow {
+  animation: spinCounterClockwise 22s linear infinite;
+  will-change: transform;
+}
+
+.animate-spin-cw-fast {
+  animation: spinClockwise 12s linear infinite;
+  will-change: transform;
+}
+
+.animate-spin-ccw-fast {
+  animation: spinCounterClockwise 9s linear infinite;
+  will-change: transform;
+}
+
+.animate-core-pulse {
+  animation: corePulseSmooth 3s ease-in-out infinite;
+  will-change: transform, filter;
+}
+
+.animate-plasma-flare {
+  animation: plasmaGlow 1.8s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.animate-ambient-pulse {
+  animation: ambientPulse 4s ease-in-out infinite;
+  will-change: transform, opacity;
+}

@@ -27,6 +27,7 @@ export default function App() {
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [showConfig, setShowConfig] = useState<boolean>(false);
   const [showFeatures, setShowFeatures] = useState<boolean>(false);
+  const [currentEmotion, setCurrentEmotion] = useState<string>('normal');
 
   const [modelName, setModelName] = useState<string>(
     (import.meta as any).env?.VITE_MODEL || 'gemini-3.8-live'
@@ -116,6 +117,9 @@ export default function App() {
             onAudioLevel: (level) => {
               setAudioLevel(level);
             },
+            onEmotionChange: (emotion) => {
+              setCurrentEmotion(emotion);
+            },
           }
         );
 
@@ -146,6 +150,15 @@ export default function App() {
       case 'listening':
         return 'TRANSCRIBING VOICE INPUT...';
       case 'speaking':
+        if (currentEmotion === 'whisper') {
+          return 'VOCAL SYNTHESIS [WHISPER PROSODY • 0.92x • 4.2kHz]';
+        } else if (currentEmotion === 'excitement') {
+          return 'VOCAL SYNTHESIS [HIGH EXCITEMENT • 1.15x • +75¢]';
+        } else if (currentEmotion === 'tiredness') {
+          return 'VOCAL SYNTHESIS [SOOTHING BEDTIME • 0.88x • -50¢]';
+        } else if (currentEmotion === 'calm') {
+          return 'VOCAL SYNTHESIS [CALM SERENE • 0.96x]';
+        }
         return 'JARVIS VOCAL SYNTHESIS ACTIVE...';
       case 'disconnected':
       default:

@@ -1,0 +1,39 @@
+/* ==========================================================================
+   JARVIS MOBILE RESPONSIVE & SAFE AREA INSETS
+   Ensures compatibility across Android notches, navigation bars & tablets
+   ========================================================================== */
+
+.safe-top {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+.safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.safe-left {
+  padding-left: max(0.5rem, env(safe-area-inset-left));
+}
+
+.safe-right {
+  padding-right: max(0.5rem, env(safe-area-inset-right));
+}
+
+/* Custom Scrollbar for HUD Modals */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(6, 1, 4, 0.8);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 30, 66, 0.4);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 30, 66, 0.8);
+}

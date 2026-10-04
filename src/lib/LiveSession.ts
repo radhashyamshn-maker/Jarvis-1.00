@@ -1,5 +1,5 @@
 import { GoogleGenAI, Modality, type LiveServerMessage } from '@google/genai';
-import { AudioStreamer } from './AudioStreamer';
+import { AudioStreamer, type EmotionCue, type ProsodySettings } from './AudioStreamer';
 import { getDynamicSystemPrompt } from './systemPrompt';
 import { executeTool, functionDeclarations } from './tools';
 
@@ -10,6 +10,7 @@ export interface LiveSessionCallbacks {
   onError: (error: string) => void;
   onAudioLevel?: (level: number) => void;
   onTranscript?: (text: string, isUser: boolean) => void;
+  onEmotionChange?: (emotion: EmotionCue, prosody: ProsodySettings) => void;
 }
 
 export interface LiveSessionOptions {
@@ -28,6 +29,10 @@ export class LiveSession {
   private isDestroyed: boolean = false;
   private finishSpeakingTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // Emotional prosody tracking
+  private currentEmotion: EmotionCue = 'normal';
+  private recentAudioLevels: number[] = [];
+
   constructor(options: LiveSessionOptions, callbacks: LiveSessionCallbacks) {
     this.options = options;
     this.callbacks = callbacks;
@@ -44,6 +49,13 @@ export class LiveSession {
         this.finishSpeakingTurn();
       },
       onAudioLevel: (level) => {
+        // Collect user speech acoustic levels when in listening mode
+        if (this.state === 'listening' && level > 0.02) {
+          this.recentAudioLevels.push(level);
+          if (this.recentAudioLevels.length > 50) {
+            this.recentAudioLevels.shift();
+          }
+        }
         this.callbacks.onAudioLevel?.(level);
       },
     });
@@ -247,6 +259,103 @@ export class LiveSession {
   }
 
   /**
+   * Dynamically adjust voice synthesis prosody (speed, pitch, and intonation)
+   */
+  public applyEmotionalProsody(cue: EmotionCue, source: string): void {
+    if (this.currentEmotion === cue) return;
+    this.currentEmotion = cue;
+    this.audioStreamer.setProsody(cue);
+    const prosody = this.audioStreamer.getProsody();
+    console.log(
+      `[JARVIS Dynamic Prosody (${source})] Emotion: "${cue.toUpperCase()}" | Speed: ${prosody.playbackRate}x | Pitch: ${prosody.detune} cents | Intonation Filter: ${prosody.filterFreq}Hz | Gain: ${prosody.gain}`
+    );
+    this.callbacks.onEmotionChange?.(cue, prosody);
+  }
+
+  public getCurrentEmotion(): EmotionCue {
+    return this.currentEmotion;
+  }
+
+  public getProsody(): ProsodySettings {
+    return this.audioStreamer.getProsody();
+  }
+
+  /**
+   * Evaluate acoustic energy profile from user speech (whispering, loudness, fatigue)
+   */
+  private evaluateUserAcousticCues(): void {
+    if (this.recentAudioLevels.length < 3) return;
+
+    const sum = this.recentAudioLevels.reduce((a, b) => a + b, 0);
+    const avg = sum / this.recentAudioLevels.length;
+    const max = Math.max(...this.recentAudioLevels);
+
+    // Whisper: sustained low energy speech below 0.15 average & 0.28 peak
+    if (avg < 0.14 && max < 0.26) {
+      this.applyEmotionalProsody('whisper', 'User Acoustic Whisper');
+    }
+    // Excitement: loud, energetic speech burst above 0.70 peak or 0.42 avg
+    else if (max > 0.68 || avg > 0.42) {
+      this.applyEmotionalProsody('excitement', 'User Acoustic Excitement/Loudness');
+    }
+    // Tiredness / Bedtime: slow, gentle, low-energy cadence
+    else if (avg < 0.22 && max < 0.38) {
+      this.applyEmotionalProsody('tiredness', 'User Acoustic Low-Energy/Tiredness');
+    }
+    // Calm / Normal baseline
+    else if (this.currentEmotion !== 'normal') {
+      this.applyEmotionalProsody('normal', 'User Acoustic Baseline');
+    }
+
+    this.recentAudioLevels = [];
+  }
+
+  /**
+   * Parse model text/transcript for semantic emotion markers
+   */
+  private detectEmotionFromText(text: string): void {
+    const t = text.toLowerCase();
+    if (
+      t.includes('whisper') ||
+      t.includes('fusfus') ||
+      t.includes('dheere bol') ||
+      t.includes('chupke se') ||
+      t.includes('*whisper*') ||
+      t.includes('*softly*') ||
+      t.includes('secret')
+    ) {
+      this.applyEmotionalProsody('whisper', 'Semantic Whisper Marker');
+    } else if (
+      t.includes('excited') ||
+      t.includes('kamaal') ||
+      t.includes('zabardast') ||
+      t.includes('arre waah') ||
+      t.includes('hurray') ||
+      t.includes('congratulations') ||
+      t.includes('dhamaka') ||
+      t.includes('emergency') ||
+      t.includes('danger') ||
+      t.includes('alert')
+    ) {
+      this.applyEmotionalProsody('excitement', 'Semantic Excitement Marker');
+    } else if (
+      t.includes('tired') ||
+      t.includes('thak') ||
+      t.includes('neend') ||
+      t.includes('so jao') ||
+      t.includes('soiye') ||
+      t.includes('good night') ||
+      t.includes('aram kijiye') ||
+      t.includes('lullaby') ||
+      t.includes('shant ho jao')
+    ) {
+      this.applyEmotionalProsody('tiredness', 'Semantic Tiredness/Rest Marker');
+    } else if (t.includes('calm') || t.includes('relax') || t.includes('sukoon')) {
+      this.applyEmotionalProsody('calm', 'Semantic Calm Marker');
+    }
+  }
+
+  /**
    * Handle incoming messages from Gemini Live server
    */
   private async handleMessage(message: LiveServerMessage): Promise<void> {
@@ -255,7 +364,15 @@ export class LiveSession {
     // Process Audio Response
     const parts = message.serverContent?.modelTurn?.parts;
     if (parts && parts.length > 0) {
+      // Analyze user acoustic energy right before playing synthesis
+      this.evaluateUserAcousticCues();
+
       for (const part of parts) {
+        if (part.text) {
+          this.detectEmotionFromText(part.text);
+          this.callbacks.onTranscript?.(part.text, false);
+        }
+
         if (part.inlineData?.data) {
           // Mute mic immediately so speaker sound doesn't echo into mic and cause self-interruption!
           this.audioStreamer.setMicMuted(true);
@@ -278,6 +395,16 @@ export class LiveSession {
       console.log('[JARVIS] Received Tool Calls:', message.toolCall.functionCalls);
       for (const call of message.toolCall.functionCalls) {
         if (!call.name) continue;
+
+        // Contextual emotional modulation from tools
+        const argsAny = (call.args || {}) as Record<string, any>;
+        if (call.name === 'startBreathingExercise' || argsAny.routineName?.includes?.('night')) {
+          this.applyEmotionalProsody('tiredness', 'Breathing/Night Tool');
+        } else if (call.name === 'triggerEmergencySOS') {
+          this.applyEmotionalProsody('excitement', 'Emergency SOS Tool');
+        } else if (call.name === 'tellJokeOrShayari') {
+          this.applyEmotionalProsody('excitement', 'Jokes/Shayari Tool');
+        }
 
         try {
           const result = await executeTool(call.name, call.args || {});

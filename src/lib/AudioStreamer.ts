@@ -1,7 +1,56 @@
 /**
  * AudioStreamer handles microphone capture (16kHz PCM16)
- * and seamless audio response playback (24kHz Web Audio API) with echo-gating.
+ * and seamless audio response playback (24kHz Web Audio API) with echo-gating
+ * and dynamic emotional prosody adjustment (speed, pitch, and intonation).
  */
+
+export type EmotionCue = 'normal' | 'whisper' | 'excitement' | 'tiredness' | 'calm';
+
+export interface ProsodySettings {
+  playbackRate: number; // speed: 0.85x to 1.25x
+  detune: number;       // pitch: -150 to +150 cents
+  filterFreq: number;   // intonation warmth / brightness (Hz)
+  gain: number;         // volume modulation (0.6 to 1.15)
+  emotion: EmotionCue;
+}
+
+export const PROSODY_PRESETS: Record<EmotionCue, ProsodySettings> = {
+  normal: {
+    playbackRate: 1.0,
+    detune: 0,
+    filterFreq: 11000,
+    gain: 1.0,
+    emotion: 'normal',
+  },
+  whisper: {
+    playbackRate: 0.92,
+    detune: -25,
+    filterFreq: 4200,
+    gain: 0.76,
+    emotion: 'whisper',
+  },
+  excitement: {
+    playbackRate: 1.15,
+    detune: 75,
+    filterFreq: 14000,
+    gain: 1.10,
+    emotion: 'excitement',
+  },
+  tiredness: {
+    playbackRate: 0.88,
+    detune: -50,
+    filterFreq: 3400,
+    gain: 0.82,
+    emotion: 'tiredness',
+  },
+  calm: {
+    playbackRate: 0.96,
+    detune: -10,
+    filterFreq: 8500,
+    gain: 0.95,
+    emotion: 'calm',
+  },
+};
 
 export class AudioStreamer {
   private inputContext: AudioContext | null = null;
@@ -9,6 +58,9 @@ export class AudioStreamer {
   private mediaStream: MediaStream | null = null;
   private processor: ScriptProcessorNode | null = null;
   private sourceNode: MediaStreamAudioSourceNode | null = null;
+
+  // Dynamic emotional prosody
+  private currentProsody: ProsodySettings = { ...PROSODY_PRESETS.normal };
 
   // Playback queue & scheduled end tracking
   private nextStartTime: number = 0;
@@ -29,6 +81,25 @@ export class AudioStreamer {
     this.onPlaybackStateChange = options?.onPlaybackStateChange;
     this.onPlaybackFinished = options?.onPlaybackFinished;
     this.onAudioLevel = options?.onAudioLevel;
+  }
+
+  /**
+   * Dynamically adjust prosody (speed, pitch, and intonation) based on emotional cues
+   */
+  public setProsody(cueOrSettings: EmotionCue | Partial<ProsodySettings>): void {
+    if (typeof cueOrSettings === 'string') {
+      const preset = PROSODY_PRESETS[cueOrSettings] || PROSODY_PRESETS.normal;
+      this.currentProsody = { ...preset };
+    } else {
+      this.currentProsody = {
+        ...this.currentProsody,
+        ...cueOrSettings,
+      };
+    }
+  }
+
+  public getProsody(): ProsodySettings {
+    return { ...this.currentProsody };
   }
 
   /**
@@ -202,13 +273,32 @@ export class AudioStreamer {
 
     const source = this.outputContext.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(this.outputContext.destination);
+
+    // Apply dynamic prosody (speed & pitch)
+    source.playbackRate.value = this.currentProsody.playbackRate;
+    if (source.detune) {
+      source.detune.value = this.currentProsody.detune;
+    }
+
+    // Apply intonation biquad filter (warmth / intimacy / brightness)
+    const filterNode = this.outputContext.createBiquadFilter();
+    filterNode.type = 'lowpass';
+    filterNode.frequency.value = this.currentProsody.filterFreq;
+
+    // Apply dynamic gain (whisper softness or excitement projection)
+    const gainNode = this.outputContext.createGain();
+    gainNode.gain.value = this.currentProsody.gain;
+
+    source.connect(filterNode);
+    filterNode.connect(gainNode);
+    gainNode.connect(this.outputContext.destination);
 
     const currentTime = this.outputContext.currentTime;
-    // Schedule seamlessly right after previous chunk or immediately
+    // Calculate scheduled duration accounting for adjusted playback rate
+    const scheduledDuration = audioBuffer.duration / Math.max(0.2, this.currentProsody.playbackRate);
     const startTime = Math.max(currentTime + 0.015, this.nextStartTime);
     source.start(startTime);
-    this.nextStartTime = startTime + audioBuffer.duration;
+    this.nextStartTime = startTime + scheduledDuration;
 
     this.activeSources.add(source);
     if (!this.isPlaying) {
