@@ -1,0 +1,6 @@
+{
+  "name": "JARVIS - Sassy AI Assistant",
+  "description": "A sassy, witty, flirty female voice-to-voice AI assistant built with Google Gemini Live API, Capacitor-ready for Android.",
+  "requestFramePermissions": ["microphone", "camera", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

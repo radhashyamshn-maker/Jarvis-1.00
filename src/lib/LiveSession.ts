@@ -1,0 +1,336 @@
+import { GoogleGenAI, Modality, type LiveServerMessage } from '@google/genai';
+import { AudioStreamer } from './AudioStreamer';
+import { getDynamicSystemPrompt } from './systemPrompt';
+import { executeTool, functionDeclarations } from './tools';
+
+export type SessionState = 'disconnected' | 'connecting' | 'listening' | 'speaking';
+
+export interface LiveSessionCallbacks {
+  onStateChange: (state: SessionState) => void;
+  onError: (error: string) => void;
+  onAudioLevel?: (level: number) => void;
+  onTranscript?: (text: string, isUser: boolean) => void;
+}
+
+export interface LiveSessionOptions {
+  apiKey?: string;
+  model?: string;
+  voiceName?: string;
+}
+
+export class LiveSession {
+  private state: SessionState = 'disconnected';
+  private ai: GoogleGenAI | null = null;
+  private session: any = null;
+  private audioStreamer: AudioStreamer;
+  private callbacks: LiveSessionCallbacks;
+  private options: LiveSessionOptions;
+  private isDestroyed: boolean = false;
+  private finishSpeakingTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(options: LiveSessionOptions, callbacks: LiveSessionCallbacks) {
+    this.options = options;
+    this.callbacks = callbacks;
+
+    this.audioStreamer = new AudioStreamer({
+      onPlaybackStateChange: (isPlaying) => {
+        if (isPlaying) {
+          // While speaker is outputting sound, mute mic to prevent feedback loop & self-interruption!
+          this.audioStreamer.setMicMuted(true);
+          this.setState('speaking');
+        }
+      },
+      onPlaybackFinished: () => {
+        this.finishSpeakingTurn();
+      },
+      onAudioLevel: (level) => {
+        this.callbacks.onAudioLevel?.(level);
+      },
+    });
+  }
+
+  public getState(): SessionState {
+    return this.state;
+  }
+
+  private setState(newState: SessionState) {
+    if (this.state !== newState && !this.isDestroyed) {
+      console.log(`[JARVIS State] ${this.state} -> ${newState}`);
+      this.state = newState;
+      this.callbacks.onStateChange(newState);
+    }
+  }
+
+  /**
+   * Transition cleanly from speaking to listening once all queued speech has completely finished.
+   */
+  private finishSpeakingTurn() {
+    if (this.finishSpeakingTimer) {
+      clearTimeout(this.finishSpeakingTimer);
+    }
+
+    // Wait 350ms for speaker reverberation to dissipate before unmuting mic
+    this.finishSpeakingTimer = setTimeout(() => {
+      if (!this.audioStreamer.isAudioPlaying() && this.state === 'speaking' && !this.isDestroyed) {
+        this.audioStreamer.setMicMuted(false);
+        this.setState('listening');
+      }
+    }, 350);
+  }
+
+  /**
+   * Connect to Gemini Live API
+   */
+  public async connect(): Promise<void> {
+    if (this.state !== 'disconnected') return;
+
+    this.setState('connecting');
+    this.isDestroyed = false;
+
+    try {
+      // 1. Resolve API Key: prioritize user-provided key in localStorage for APK standalone mode
+      let key = this.options.apiKey;
+
+      if (!key && typeof window !== 'undefined') {
+        const userStoredKey =
+          localStorage.getItem('jarvis_custom_api_key') ||
+          localStorage.getItem('gemini_api_key') ||
+          localStorage.getItem('apiKey');
+        if (userStoredKey && userStoredKey.trim() !== '' && userStoredKey !== 'YOUR_API_KEY_HERE') {
+          key = userStoredKey.trim();
+        }
+      }
+
+      // If still empty, check server config route
+      if (!key) {
+        try {
+          const res = await fetch('/api/config');
+          if (res.ok) {
+            const data = await res.json();
+            if (data.apiKey && data.apiKey !== 'YOUR_API_KEY_HERE') {
+              key = data.apiKey;
+            }
+          }
+        } catch {
+          // ignore error if running pure static client or offline APK
+        }
+      }
+
+      if (!key) {
+        key = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+      }
+
+      if (!key || key.trim() === '' || key === 'YOUR_API_KEY_HERE') {
+        throw new Error(
+          'Gemini API Key missing. Please save your API Key in Settings (CONFIG) or provide GEMINI_API_KEY in environment.'
+        );
+      }
+
+      // 2. Initialize GenAI Client
+      this.ai = new GoogleGenAI({
+        apiKey: key,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
+
+      let chosenModel =
+        this.options.model ||
+        (import.meta as any).env?.VITE_MODEL ||
+        'gemini-3.8-live';
+
+      // Remap unsupported/deprecated models to gemini-3.8-live
+      if (
+        chosenModel === 'gemini-2.0-flash-exp' ||
+        chosenModel === 'gemini-2.0-flash' ||
+        chosenModel === 'gemini-2.0-flash-realtime-exp'
+      ) {
+        console.warn(`[JARVIS] Remapping legacy model '${chosenModel}' to 'gemini-3.8-live'`);
+        chosenModel = 'gemini-3.8-live';
+      }
+
+      const voice = this.options.voiceName || 'Aoede';
+
+      console.log(`[JARVIS] Connecting Live Session using model: ${chosenModel}, voice: ${voice}`);
+
+      // 3. Connect to Live Session with candidate models fallback
+      const candidateModels = [
+        chosenModel,
+        'gemini-3.8-live',
+        'gemini-3.1-flash-live-preview',
+        'gemini-2.5-flash-native-audio-latest',
+      ].filter((m, idx, arr) => arr.indexOf(m) === idx);
+
+      let lastError: any = null;
+      let connected = false;
+
+      for (const modelToTry of candidateModels) {
+        try {
+          console.log(`[JARVIS] Attempting live connect with model: ${modelToTry}`);
+          this.session = await this.ai.live.connect({
+            model: modelToTry,
+            config: {
+              responseModalities: [Modality.AUDIO],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: {
+                    voiceName: voice,
+                  },
+                },
+              },
+              systemInstruction: getDynamicSystemPrompt(),
+              tools: [{ functionDeclarations }],
+            },
+            callbacks: {
+              onopen: () => {
+                console.log(`[JARVIS] WebSocket connected to Gemini Live (${modelToTry})!`);
+                this.audioStreamer.setMicMuted(false);
+                this.setState('listening');
+              },
+              onmessage: async (message: LiveServerMessage) => {
+                await this.handleMessage(message);
+              },
+              onerror: (err: any) => {
+                console.error('[JARVIS] Live socket error:', err);
+                this.callbacks.onError(err?.message || 'Gemini Live connection error');
+              },
+              onclose: (e: any) => {
+                console.log('[JARVIS] Live socket closed:', e);
+                if (!this.isDestroyed) {
+                  this.disconnect();
+                }
+              },
+            },
+          });
+
+          connected = true;
+          break;
+        } catch (err: any) {
+          console.warn(`[JARVIS] Failed to connect with ${modelToTry}:`, err?.message || err);
+          lastError = err;
+        }
+      }
+
+      if (!connected) {
+        throw lastError || new Error('Could not establish Live connection with available models.');
+      }
+
+      // 4. Start Microphone Streaming (16kHz PCM16)
+      await this.audioStreamer.startMic((pcmBase64) => {
+        // Only stream mic chunks when listening and NOT muted during speaking
+        if (
+          this.session &&
+          this.state !== 'disconnected' &&
+          !this.audioStreamer.isMicMuted()
+        ) {
+          try {
+            this.session.sendRealtimeInput({
+              audio: {
+                data: pcmBase64,
+                mimeType: 'audio/pcm;rate=16000',
+              },
+            });
+          } catch (e) {
+            console.warn('Error sending mic chunk:', e);
+          }
+        }
+      });
+    } catch (err: any) {
+      console.error('[JARVIS] Connection failed:', err);
+      this.disconnect();
+      this.callbacks.onError(
+        err?.message || 'Could not connect to JARVIS Live. Check your API key and network.'
+      );
+    }
+  }
+
+  /**
+   * Handle incoming messages from Gemini Live server
+   */
+  private async handleMessage(message: LiveServerMessage): Promise<void> {
+    if (this.isDestroyed) return;
+
+    // Process Audio Response
+    const parts = message.serverContent?.modelTurn?.parts;
+    if (parts && parts.length > 0) {
+      for (const part of parts) {
+        if (part.inlineData?.data) {
+          // Mute mic immediately so speaker sound doesn't echo into mic and cause self-interruption!
+          this.audioStreamer.setMicMuted(true);
+          this.setState('speaking');
+          await this.audioStreamer.playChunk(part.inlineData.data);
+        }
+      }
+    }
+
+    // When the server completes generating this turn
+    if (message.serverContent?.turnComplete) {
+      console.log('[JARVIS] Server turnComplete received. Ensuring all audio plays to the end.');
+      if (!this.audioStreamer.isAudioPlaying()) {
+        this.finishSpeakingTurn();
+      }
+    }
+
+    // Process Function/Tool Calls
+    if (message.toolCall?.functionCalls && message.toolCall.functionCalls.length > 0) {
+      console.log('[JARVIS] Received Tool Calls:', message.toolCall.functionCalls);
+      for (const call of message.toolCall.functionCalls) {
+        if (!call.name) continue;
+
+        try {
+          const result = await executeTool(call.name, call.args || {});
+
+          if (this.session) {
+            this.session.sendToolResponse({
+              functionResponses: [
+                {
+                  id: call.id,
+                  name: call.name,
+                  response: { output: result },
+                },
+              ],
+            });
+          }
+        } catch (e: any) {
+          console.error(`Error handling tool call ${call.name}:`, e);
+          if (this.session) {
+            this.session.sendToolResponse({
+              functionResponses: [
+                {
+                  id: call.id,
+                  name: call.name,
+                  response: { error: e?.message || 'Execution error' },
+                },
+              ],
+            });
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Disconnect and release all resources
+   */
+  public disconnect(): void {
+    this.isDestroyed = true;
+    if (this.finishSpeakingTimer) {
+      clearTimeout(this.finishSpeakingTimer);
+      this.finishSpeakingTimer = null;
+    }
+
+    if (this.session) {
+      try {
+        this.session.close();
+      } catch (e) {
+        console.warn(e);
+      }
+      this.session = null;
+    }
+
+    this.audioStreamer.cleanup();
+    this.setState('disconnected');
+  }
+}
