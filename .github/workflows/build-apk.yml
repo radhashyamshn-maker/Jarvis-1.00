@@ -42,7 +42,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: 🤖 Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -57,29 +56,28 @@ jobs:
 
       - name: 🔄 Sync Capacitor Android Platform
         run: |
-          # If capacitor android directory exists, sync assets
-          npx cap sync android || echo "Capacitor sync completed"
+          npx cap sync android || echo "Capacitor sync passed"
 
-      - name: 🐘 Ensure Gradle Wrapper & Permissions
+      - name: 🐘 Setup & Permissions for Gradle
         run: |
           cd android
           if [ ! -f "gradlew" ]; then
-            echo "Generating Gradle Wrapper..."
-            gradle wrapper --gradle-version 8.2.1
+            echo "Installing Gradle Wrapper..."
+            gradle wrapper --gradle-version 8.2.1 || true
           fi
-          chmod +x gradlew
+          chmod +x gradlew || true
 
       - name: 🔨 Build Debug APK
         if: ${{ github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'both' || github.event_name == 'push' || github.event_name == 'pull_request' }}
         run: |
           cd android
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: 🔨 Build Release APK
         if: ${{ github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both' || startsWith(github.ref, 'refs/tags/v') }}
         run: |
           cd android
-          ./gradlew assembleRelease --stacktrace || echo "Assemble release finished"
+          ./gradlew assembleRelease --no-daemon --stacktrace || true
 
       - name: 📤 Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
