@@ -12,6 +12,7 @@ import {
   playHudBeep,
 } from './audioEffects';
 import { promptPermissionModal } from './permissions';
+import type { SassLevel } from './systemPrompt';
 
 export interface ToolExecutionEvent {
   name: string;
@@ -686,6 +687,20 @@ export const functionDeclarations: FunctionDeclaration[] = [
         routineName: { type: Type.STRING, description: 'Name of the routine' },
       },
       required: ['routineName'],
+    },
+  },
+  {
+    name: 'setPersonality',
+    description: 'Toggle JARVIS demeanor and sass level ("sassy", "extra-sassy", "gentle", "professional")',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        level: {
+          type: Type.STRING,
+          description: 'Sass level: "sassy" (balanced charm), "extra-sassy" (maximum drama & roasts), "gentle" (sweet caring warmth), or "professional" (formal zero-sass butler)',
+        },
+      },
+      required: ['level'],
     },
   },
 ];
@@ -1618,6 +1633,48 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         result = { ok: true, message: 'Complete memory database exported to jarvis_memory.json.' };
+        break;
+      }
+
+      case 'setPersonality': {
+        const rawLevel = ((args.level as string) || 'sassy').toLowerCase();
+        let targetLevel: SassLevel = 'sassy';
+        if (
+          rawLevel.includes('extra') ||
+          rawLevel.includes('spicy') ||
+          rawLevel.includes('max') ||
+          rawLevel.includes('roast')
+        ) {
+          targetLevel = 'extra-sassy';
+        } else if (
+          rawLevel.includes('gentle') ||
+          rawLevel.includes('sweet') ||
+          rawLevel.includes('love') ||
+          rawLevel.includes('care')
+        ) {
+          targetLevel = 'gentle';
+        } else if (
+          rawLevel.includes('pro') ||
+          rawLevel.includes('formal') ||
+          rawLevel.includes('butler') ||
+          rawLevel.includes('zero')
+        ) {
+          targetLevel = 'professional';
+        } else {
+          targetLevel = 'sassy';
+        }
+
+        try {
+          localStorage.setItem('jarvis_sass_level', targetLevel);
+        } catch {}
+        specialEvents.emit('personality_changed', { level: targetLevel });
+        playSuccessChime();
+
+        result = {
+          ok: true,
+          level: targetLevel,
+          message: `Personality shifted to ${targetLevel}. Live session prompt updated, Sir!`,
+        };
         break;
       }
 

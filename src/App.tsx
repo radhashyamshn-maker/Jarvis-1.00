@@ -21,6 +21,7 @@ import { checkSinglePermission, promptPermissionModal } from './lib/permissions'
 import { subscribeToolExecution, type ToolExecutionEvent } from './lib/tools';
 import { specialEvents } from './lib/specialEvents';
 import { playHudBeep } from './lib/audioEffects';
+import type { SassLevel } from './lib/systemPrompt';
 
 export type ScreenId =
   | 'home'
@@ -83,8 +84,16 @@ export default function App() {
     localStorage.getItem('jarvis_voice') || 'Aoede'
   );
 
+  const [sassLevel, setSassLevel] = useState<SassLevel>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('jarvis_sass_level') as SassLevel) || 'sassy';
+    }
+    return 'sassy';
+  });
+
   const liveSessionRef = useRef<LiveSession | null>(null);
   const actionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handlePersonalityChangeRef = useRef<((level: SassLevel) => void) | null>(null);
 
   // Subscribe to tool execution events
   useEffect(() => {
@@ -96,6 +105,13 @@ export default function App() {
       actionTimeoutRef.current = setTimeout(() => {
         setLastAction(null);
       }, 5000);
+    });
+
+    // Subscribe to personality changed events
+    const unsubPersonality = specialEvents.on('personality_changed', (data: any) => {
+      if (data?.level) {
+        handlePersonalityChangeRef.current?.(data.level);
+      }
     });
 
     // Subscribe to navigation events
@@ -181,6 +197,7 @@ export default function App() {
 
     return () => {
       unsubscribe();
+      unsubPersonality();
       unsubNav();
       unsub2080();
       unsubBrowser();
@@ -408,6 +425,51 @@ export default function App() {
     }
   };
 
+  const handlePersonalityChange = async (newLevel: SassLevel) => {
+    setSassLevel(newLevel);
+    localStorage.setItem('jarvis_sass_level', newLevel);
+
+    // If active session, reconnect with the updated personality system prompt
+    if (state !== 'disconnected') {
+      if (liveSessionRef.current) {
+        liveSessionRef.current.disconnect();
+        liveSessionRef.current = null;
+      }
+      setState('connecting');
+      try {
+        const session = new LiveSession(
+          {
+            model: modelName,
+            voiceName,
+            sassLevel: newLevel,
+          },
+          {
+            onStateChange: (newState) => {
+              setState(newState);
+            },
+            onError: (err) => {
+              setError(err);
+              setState('disconnected');
+            },
+            onAudioLevel: (level) => {
+              setAudioLevel(level);
+            },
+            onEmotionChange: (emotion) => {
+              setCurrentEmotion(emotion);
+            },
+          }
+        );
+        liveSessionRef.current = session;
+        await session.connect();
+      } catch (err: any) {
+        console.error('Personality reconnect error:', err);
+        setError(err?.message || 'Failed to reconnect with new personality.');
+        setState('disconnected');
+      }
+    }
+  };
+  handlePersonalityChangeRef.current = handlePersonalityChange;
+
   const handleVisionClick = async () => {
     const cam = await checkSinglePermission('camera');
     if (cam !== 'granted') {
@@ -433,6 +495,7 @@ export default function App() {
           {
             model: modelName,
             voiceName,
+            sassLevel,
           },
           {
             onStateChange: (newState) => {
@@ -649,6 +712,8 @@ export default function App() {
         onClose={() => setShowConfig(false)}
         model={modelName}
         onModelChange={(newModel) => setModelName(newModel)}
+        sassLevel={sassLevel}
+        onPersonalityChange={handlePersonalityChange}
       />
 
       {/* HUD ERROR TOAST */}

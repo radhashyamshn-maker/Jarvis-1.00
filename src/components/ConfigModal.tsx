@@ -25,15 +25,70 @@ import {
   EyeOff,
   Save,
   Trash2,
+  Flame,
+  Heart,
+  Zap,
 } from 'lucide-react';
 import { playHudBeep } from '../lib/audioEffects';
+import type { SassLevel } from '../lib/systemPrompt';
 
 interface ConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
   model: string;
   onModelChange: (model: string) => void;
+  sassLevel?: SassLevel;
+  onPersonalityChange?: (level: SassLevel) => void;
 }
+
+interface SassOption {
+  id: SassLevel;
+  title: string;
+  hindiTitle: string;
+  tag: string;
+  desc: string;
+  badgeColor: string;
+  icon: any;
+}
+
+const SASS_OPTIONS: SassOption[] = [
+  {
+    id: 'sassy',
+    title: 'Stark Sass',
+    hindiTitle: 'क्लासिक सैसी व चतुर',
+    tag: 'BALANCED',
+    desc: 'Witty comebacks, playful teasing, and sharp Stark-tech intelligence.',
+    badgeColor: 'bg-[#ff1e42]/20 text-[#ff708a] border-[#ff1e42]/40',
+    icon: Flame,
+  },
+  {
+    id: 'extra-sassy',
+    title: 'Maximum Sass',
+    hindiTitle: 'मैक्सिमम सैस & ड्रामा क्वीन',
+    tag: 'SPICY',
+    desc: 'Sarcastic humor, savage Bollywood roasts & bold playful drama.',
+    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+    icon: Zap,
+  },
+  {
+    id: 'gentle',
+    title: 'Gentle & Sweet',
+    hindiTitle: 'स्वीट, केयरिंग व कोमल',
+    tag: 'AFFECTION',
+    desc: 'Deeply caring, loving warmth, soft blushing empathy, zero roasts.',
+    badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+    icon: Heart,
+  },
+  {
+    id: 'professional',
+    title: 'Classic Protocol',
+    hindiTitle: 'फॉर्मल बटलर प्रोटोकॉल',
+    tag: 'FORMAL',
+    desc: 'Polite, analytical, zero drama, razor-sharp technical execution.',
+    badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
+    icon: ShieldCheck,
+  },
+];
 
 type PermissionStatus = 'granted' | 'denied' | 'prompt';
 
@@ -53,6 +108,8 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
   onClose,
   model,
   onModelChange,
+  sassLevel: propSassLevel,
+  onPersonalityChange,
 }) => {
   const [apiKeyStatus, setApiKeyStatus] = useState<'checking' | 'active' | 'missing'>('checking');
   const [customKey, setCustomKey] = useState<string>('');
@@ -62,6 +119,31 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
   const [statuses, setStatuses] = useState<Record<string, PermissionStatus>>({});
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  // Personality / Sass Level State
+  const [currentSass, setCurrentSass] = useState<SassLevel>(() => {
+    return (
+      propSassLevel ||
+      (typeof window !== 'undefined'
+        ? (localStorage.getItem('jarvis_sass_level') as SassLevel) || 'sassy'
+        : 'sassy')
+    );
+  });
+
+  useEffect(() => {
+    if (propSassLevel) {
+      setCurrentSass(propSassLevel);
+    }
+  }, [propSassLevel]);
+
+  const handleSelectSass = (level: SassLevel) => {
+    setCurrentSass(level);
+    localStorage.setItem('jarvis_sass_level', level);
+    onPersonalityChange?.(level);
+    const chosen = SASS_OPTIONS.find((s) => s.id === level);
+    showToast(`JARVIS Personality set to "${chosen?.title || level}"! Live prompt updated.`);
+    playHudBeep(1020, 0.05);
+  };
 
   const showToast = (msg: string) => {
     setStatusMessage(msg);
@@ -638,7 +720,88 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
             </div>
           </div>
 
-          {/* 2. ALL PHONE PERMISSIONS HUB (FULLY WORKING) */}
+          {/* 2. JARVIS PERSONALITY & SASS LEVEL SELECTOR */}
+          <div className="p-3.5 rounded-2xl bg-[#140108] border border-[#ff1e42]/35 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-xs font-bold text-white uppercase flex items-center gap-1.5">
+                <Flame className="w-4 h-4 text-[#ff1e42]" />
+                JARVIS PERSONALITY & SASS LEVEL
+              </span>
+              <span className="px-2 py-0.5 rounded-full font-mono text-[9px] font-bold uppercase bg-[#ff1e42]/20 text-[#ff708a] border border-[#ff1e42]/40">
+                LIVE PROMPT SYNC
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-400 leading-snug">
+              Toggle JARVIS demeanor. Selecting an option immediately updates the system prompt and personality guidelines passed to the Gemini Live session.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {SASS_OPTIONS.map((opt) => {
+                const isSelected = currentSass === opt.id;
+                const Icon = opt.icon;
+
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => handleSelectSass(opt.id)}
+                    className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between gap-1.5 ${
+                      isSelected
+                        ? 'bg-[#29000d] border-[#ff1e42] shadow-[0_0_15px_rgba(255,30,66,0.35)]'
+                        : 'bg-[#0f0106] border-white/10 hover:border-white/20 hover:bg-[#1a020b]'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`p-1.5 rounded-lg border shrink-0 ${
+                            isSelected
+                              ? 'bg-[#ff1e42]/30 border-[#ff1e42] text-white'
+                              : 'bg-black/40 border-white/10 text-slate-400'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-xs font-bold text-white">
+                              {opt.title}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-[#ff99ac] font-sans block">
+                            {opt.hindiTitle}
+                          </span>
+                        </div>
+                      </div>
+
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[8.5px] font-mono font-bold tracking-wider border shrink-0 ${opt.badgeColor}`}
+                      >
+                        {opt.tag}
+                      </span>
+                    </div>
+
+                    <p className="text-[10px] text-slate-300 leading-snug">
+                      {opt.desc}
+                    </p>
+
+                    <div className="pt-1 border-t border-white/5 flex items-center justify-between text-[9px] font-mono">
+                      {isSelected ? (
+                        <span className="text-[#ff708a] font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-[#ff1e42]" /> ACTIVE IN LIVE PROMPT
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">TAP TO ACTIVATE</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 3. ALL PHONE PERMISSIONS HUB (FULLY WORKING) */}
           <div className="p-3.5 rounded-2xl bg-[#120107] border border-[#ff1e42]/30 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
@@ -768,10 +931,14 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
               <span>CAPACITOR ANDROID APK EXPORT (ALL PERMISSIONS ENABLED)</span>
             </div>
             <pre className="text-[10px] bg-black/70 p-2 rounded-lg font-mono text-cyan-300 overflow-x-auto whitespace-pre">
-{`npm run build
-npx cap add android
-npx cap sync
-npx cap open android`}
+{`# 1. Build web & sync assets to android
+npm run build && npx cap sync android
+
+# 2. Build Debug APK (Android Studio or CLI)
+cd android && ./gradlew assembleDebug
+
+# Output APK path:
+# android/app/build/outputs/apk/debug/app-debug.apk`}
             </pre>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { GoogleGenAI, Modality, type LiveServerMessage } from '@google/genai';
 import { AudioStreamer, type EmotionCue, type ProsodySettings } from './AudioStreamer';
-import { getDynamicSystemPrompt } from './systemPrompt';
+import { getDynamicSystemPrompt, type SassLevel } from './systemPrompt';
 import { executeTool, functionDeclarations } from './tools';
 
 export type SessionState = 'disconnected' | 'connecting' | 'listening' | 'speaking';
@@ -17,6 +17,7 @@ export interface LiveSessionOptions {
   apiKey?: string;
   model?: string;
   voiceName?: string;
+  sassLevel?: SassLevel;
 }
 
 export class LiveSession {
@@ -196,7 +197,7 @@ export class LiveSession {
                   },
                 },
               },
-              systemInstruction: getDynamicSystemPrompt(),
+              systemInstruction: getDynamicSystemPrompt(this.options.sassLevel),
               tools: [{ functionDeclarations }],
             },
             callbacks: {
