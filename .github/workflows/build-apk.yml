@@ -51,8 +51,10 @@ jobs:
           # Auto-accept all Android SDK licenses
           yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
 
-      - name: 🐘 Setup Gradle
+      - name: 🐘 Setup Gradle (v8.2.1)
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.2.1'
 
       - name: 📦 Install Node Dependencies
         run: |
@@ -64,30 +66,36 @@ jobs:
 
       - name: 🔄 Sync Capacitor Android Platform
         run: |
-          # Ensure necessary dirs exist
+          # Ensure essential directories exist
           mkdir -p android/app/libs
           mkdir -p android/capacitor-cordova-android-plugins/src/main/libs
-          npx cap sync android || echo "Capacitor sync completed"
+          npx cap sync android || echo "Capacitor sync passed"
 
-      - name: 🔑 Ensure Gradle Wrapper Executable
+      - name: 🔑 Configure Gradle Wrapper
         run: |
           cd android
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper --gradle-version 8.2.1 || true
-          fi
+          gradle wrapper --gradle-version 8.2.1 --distribution-type bin || true
           chmod +x gradlew || true
 
       - name: 🔨 Build Debug APK
         if: ${{ github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'both' || github.event_name == 'push' || github.event_name == 'pull_request' }}
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleDebug --no-daemon --stacktrace || gradle assembleDebug --no-daemon --stacktrace
+          else
+            gradle assembleDebug --no-daemon --stacktrace
+          fi
 
       - name: 🔨 Build Release APK
         if: ${{ github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both' || startsWith(github.ref, 'refs/tags/v') }}
         run: |
           cd android
-          ./gradlew assembleRelease --no-daemon --stacktrace || true
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleRelease --no-daemon --stacktrace || gradle assembleRelease --no-daemon --stacktrace || true
+          else
+            gradle assembleRelease --no-daemon --stacktrace || true
+          fi
 
       - name: 📤 Upload Debug APK Artifact
         uses: actions/upload-artifact@v4

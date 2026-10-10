@@ -138,6 +138,10 @@ export class LiveSession {
         );
       }
 
+      // Pre-warm audio output context within user activation gesture
+      await this.audioStreamer.initOutput();
+      this.audioStreamer.resumeOutput();
+
       // 2. Initialize GenAI Client
       this.ai = new GoogleGenAI({
         apiKey: key,
@@ -316,6 +320,35 @@ export class LiveSession {
   private detectEmotionFromText(text: string): void {
     const t = text.toLowerCase();
     if (
+      t.includes('*crying*') ||
+      t.includes('*sniffles*') ||
+      t.includes('*sobs*') ||
+      t.includes('rona') ||
+      t.includes('ro mat') ||
+      t.includes('aankhon me aansu') ||
+      t.includes('dil toot gaya')
+    ) {
+      this.applyEmotionalProsody('crying', 'Semantic Crying/Tears Marker');
+    } else if (
+      t.includes('*pouts*') ||
+      t.includes('*angry*') ||
+      t.includes('gussa') ||
+      t.includes('katti') ||
+      t.includes('bure ho') ||
+      t.includes('tang mat karo') ||
+      t.includes('huh!')
+    ) {
+      this.applyEmotionalProsody('anger', 'Semantic Anger/Pouting Marker');
+    } else if (
+      t.includes('*sad*') ||
+      t.includes('udaas') ||
+      t.includes('dard') ||
+      t.includes('takleef') ||
+      t.includes('pareshan') ||
+      t.includes('sorry')
+    ) {
+      this.applyEmotionalProsody('sadness', 'Semantic Sadness Marker');
+    } else if (
       t.includes('whisper') ||
       t.includes('fusfus') ||
       t.includes('dheere bol') ||
@@ -346,12 +379,13 @@ export class LiveSession {
       t.includes('soiye') ||
       t.includes('good night') ||
       t.includes('aram kijiye') ||
-      t.includes('lullaby') ||
-      t.includes('shant ho jao')
+      t.includes('lullaby')
     ) {
       this.applyEmotionalProsody('tiredness', 'Semantic Tiredness/Rest Marker');
     } else if (t.includes('calm') || t.includes('relax') || t.includes('sukoon')) {
       this.applyEmotionalProsody('calm', 'Semantic Calm Marker');
+    } else {
+      this.applyEmotionalProsody('normal', 'Semantic Normal Flow');
     }
   }
 
@@ -459,5 +493,29 @@ export class LiveSession {
 
     this.audioStreamer.cleanup();
     this.setState('disconnected');
+  }
+
+  /**
+   * Send a client text prompt directly to Gemini Live
+   */
+  public async sendTextMessage(text: string): Promise<void> {
+    if (!this.session || this.state === 'disconnected') {
+      console.warn('[JARVIS] Cannot send text, session not active');
+      return;
+    }
+    try {
+      this.callbacks.onTranscript?.(text, true);
+      await this.session.sendClientContent({
+        turns: [
+          {
+            role: 'user',
+            parts: [{ text }],
+          },
+        ],
+        turnComplete: true,
+      });
+    } catch (err) {
+      console.error('[JARVIS] Failed to send client text:', err);
+    }
   }
 }

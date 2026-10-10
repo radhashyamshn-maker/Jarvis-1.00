@@ -11,9 +11,50 @@ import { ConfigModal } from './components/ConfigModal';
 import { FeatureMatrixModal } from './components/FeatureMatrixModal';
 import { FakeCallModal } from './components/FakeCallModal';
 import { BreathingModal } from './components/BreathingModal';
+import { NavigationModal } from './components/NavigationModal';
+import { Futuristic2080Modal } from './components/Futuristic2080Modal';
+import { InAppBrowserModal } from './components/InAppBrowserModal';
+import { RecentTabsModal, type RecentTabItem } from './components/RecentTabsModal';
+import { SwipeNavigationIndicator } from './components/SwipeNavigationIndicator';
 import { PermissionManager } from './components/PermissionManager';
 import { checkSinglePermission, promptPermissionModal } from './lib/permissions';
 import { subscribeToolExecution, type ToolExecutionEvent } from './lib/tools';
+import { specialEvents } from './lib/specialEvents';
+import { playHudBeep } from './lib/audioEffects';
+
+export type ScreenId =
+  | 'home'
+  | 'features'
+  | 'vision'
+  | 'navigation'
+  | '2080'
+  | 'recent_tabs'
+  | 'config'
+  | 'history'
+  | 'browser';
+
+const SCREEN_CYCLE: ScreenId[] = [
+  'home',
+  'features',
+  'vision',
+  'navigation',
+  '2080',
+  'recent_tabs',
+  'config',
+  'history',
+];
+
+const SCREEN_NAMES: Record<ScreenId, string> = {
+  home: 'Main Interface (Core)',
+  features: '500+ Apps Matrix',
+  vision: 'Vision Sensor',
+  navigation: 'Stark GPS Navigation',
+  '2080': 'Year 2080 Matrix',
+  recent_tabs: 'Recent Tabs & Apps',
+  config: 'Settings & Config',
+  history: 'Logs & History',
+  browser: 'In-App Web Browser',
+};
 
 export default function App() {
   const [state, setState] = useState<SessionState>('disconnected');
@@ -27,6 +68,11 @@ export default function App() {
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [showConfig, setShowConfig] = useState<boolean>(false);
   const [showFeatures, setShowFeatures] = useState<boolean>(false);
+  const [showNavigation, setShowNavigation] = useState<boolean>(false);
+  const [show2080, setShow2080] = useState<boolean>(false);
+  const [showBrowser, setShowBrowser] = useState<boolean>(false);
+  const [browserUrl, setBrowserUrl] = useState<string>('');
+  const [showRecentTabs, setShowRecentTabs] = useState<boolean>(false);
   const [currentEmotion, setCurrentEmotion] = useState<string>('normal');
 
   const [modelName, setModelName] = useState<string>(
@@ -52,8 +98,95 @@ export default function App() {
       }, 5000);
     });
 
+    // Subscribe to navigation events
+    const unsubNav = specialEvents.on('open_navigation', () => {
+      setShowNavigation(true);
+    });
+
+    // Subscribe to 2080 modal events
+    const unsub2080 = specialEvents.on('open_2080_modal', () => {
+      setShow2080(true);
+    });
+
+    // Subscribe to in-app browser and recent tabs events
+    const unsubBrowser = specialEvents.on('open_inapp_browser', (data: any) => {
+      if (data?.url) {
+        setBrowserUrl(data.url);
+        setShowBrowser(true);
+      }
+    });
+
+    const unsubCloseBrowser = specialEvents.on('close_inapp_browser', () => {
+      setShowBrowser(false);
+    });
+
+    const unsubTabs = specialEvents.on('open_recent_tabs', () => {
+      setShowRecentTabs(true);
+    });
+
+    // Subscribe to device navigation commands
+    const unsubDevNav = specialEvents.on('device_navigate', (data: any) => {
+      const act = (data?.action || '').toLowerCase();
+      const scr = (data?.screen || '').toLowerCase();
+
+      if (act === 'back') {
+        // First prioritize closing browser if open
+        setShowBrowser((b) => {
+          if (b) return false;
+          return b;
+        });
+        // Next prioritize closing recent tabs if open
+        setShowRecentTabs((t) => {
+          if (t) return false;
+          return t;
+        });
+        setShowVision((v) => { if (v) return false; return v; });
+        setShowHistory((h) => { if (h) return false; return h; });
+        setShowConfig((c) => { if (c) return false; return c; });
+        setShowFeatures((f) => { if (f) return false; return f; });
+        setShowNavigation((n) => { if (n) return false; return n; });
+        setShow2080((q) => { if (q) return false; return q; });
+        if (window.history.length > 1) window.history.back();
+      } else if (act === 'home') {
+        setShowBrowser(false);
+        setShowRecentTabs(false);
+        setShowVision(false);
+        setShowHistory(false);
+        setShowConfig(false);
+        setShowFeatures(false);
+        setShowNavigation(false);
+        setShow2080(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (act === 'recent_tabs' || act === 'tabs') {
+        setShowRecentTabs(true);
+      } else if (act === 'close_browser') {
+        setShowBrowser(false);
+      } else if (act === 'scroll_up') {
+        window.scrollBy({ top: -400, behavior: 'smooth' });
+      } else if (act === 'scroll_down') {
+        window.scrollBy({ top: 400, behavior: 'smooth' });
+      } else if (act === 'scroll_top') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (act === 'scroll_bottom') {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      } else if (act === 'open_screen') {
+        if (scr.includes('setting') || scr.includes('config')) setShowConfig(true);
+        else if (scr.includes('vision') || scr.includes('camera')) setShowVision(true);
+        else if (scr.includes('history')) setShowHistory(true);
+        else if (scr.includes('app') || scr.includes('feature')) setShowFeatures(true);
+        else if (scr.includes('nav') || scr.includes('map')) setShowNavigation(true);
+        else if (scr.includes('2080') || scr.includes('quantum')) setShow2080(true);
+      }
+    });
+
     return () => {
       unsubscribe();
+      unsubNav();
+      unsub2080();
+      unsubBrowser();
+      unsubCloseBrowser();
+      unsubTabs();
+      unsubDevNav();
       if (actionTimeoutRef.current) clearTimeout(actionTimeoutRef.current);
     };
   }, []);
@@ -66,6 +199,201 @@ export default function App() {
       }
     };
   }, []);
+
+  // Screen Management for Gesture & Modal Navigation
+  const getActiveScreen = (): ScreenId => {
+    if (showBrowser) return 'browser';
+    if (showVision) return 'vision';
+    if (showFeatures) return 'features';
+    if (showNavigation) return 'navigation';
+    if (show2080) return '2080';
+    if (showRecentTabs) return 'recent_tabs';
+    if (showHistory) return 'history';
+    if (showConfig) return 'config';
+    return 'home';
+  };
+
+  const closeAllScreens = () => {
+    setShowBrowser(false);
+    setShowVision(false);
+    setShowFeatures(false);
+    setShowNavigation(false);
+    setShow2080(false);
+    setShowRecentTabs(false);
+    setShowHistory(false);
+    setShowConfig(false);
+  };
+
+  const navigateToScreen = (target: ScreenId) => {
+    closeAllScreens();
+    if (target === 'home') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (target === 'features') {
+      setShowFeatures(true);
+    } else if (target === 'vision') {
+      setShowVision(true);
+    } else if (target === 'navigation') {
+      setShowNavigation(true);
+    } else if (target === '2080') {
+      setShow2080(true);
+    } else if (target === 'recent_tabs') {
+      setShowRecentTabs(true);
+    } else if (target === 'history') {
+      setShowHistory(true);
+    } else if (target === 'config') {
+      setShowConfig(true);
+    } else if (target === 'browser') {
+      setShowBrowser(true);
+    }
+  };
+
+  // Horizontal Swipe Gesture Handling
+  const [swipeFeedback, setSwipeFeedback] = useState<{
+    direction: 'left' | 'right';
+    screenName: string;
+  } | null>(null);
+  const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const mouseStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  const handleSwipeNavigate = (direction: 'left' | 'right') => {
+    const current = getActiveScreen();
+    let nextScreen: ScreenId = 'home';
+
+    if (current === 'browser') {
+      if (direction === 'right') {
+        nextScreen = 'home';
+      } else {
+        nextScreen = 'recent_tabs';
+      }
+    } else {
+      const idx = SCREEN_CYCLE.indexOf(current);
+      if (idx === -1) {
+        nextScreen = direction === 'left' ? 'features' : 'home';
+      } else if (direction === 'left') {
+        const nextIdx = (idx + 1) % SCREEN_CYCLE.length;
+        nextScreen = SCREEN_CYCLE[nextIdx];
+      } else {
+        const prevIdx = (idx - 1 + SCREEN_CYCLE.length) % SCREEN_CYCLE.length;
+        nextScreen = SCREEN_CYCLE[prevIdx];
+      }
+    }
+
+    try {
+      if ('vibrate' in navigator) navigator.vibrate(15);
+    } catch {}
+    playHudBeep(980, 0.04);
+
+    navigateToScreen(nextScreen);
+
+    if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+    setSwipeFeedback({
+      direction,
+      screenName: SCREEN_NAMES[nextScreen] || nextScreen.toUpperCase(),
+    });
+    feedbackTimeoutRef.current = setTimeout(() => {
+      setSwipeFeedback(null);
+    }, 900);
+  };
+
+  useEffect(() => {
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      touchStartRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+        time: Date.now(),
+      };
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!touchStartRef.current || e.changedTouches.length === 0) return;
+      const start = touchStartRef.current;
+      touchStartRef.current = null;
+
+      const endX = e.changedTouches[0].clientX;
+      const endY = e.changedTouches[0].clientY;
+      const dx = endX - start.x;
+      const dy = endY - start.y;
+      const elapsed = Date.now() - start.time;
+
+      if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy) * 1.35 && elapsed < 800) {
+        const target = e.target as HTMLElement | null;
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.getAttribute('role') === 'slider')
+        ) {
+          return;
+        }
+        if (dx < 0) {
+          handleSwipeNavigate('left');
+        } else {
+          handleSwipeNavigate('right');
+        }
+      }
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.closest('button') ||
+        target?.closest('input') ||
+        target?.closest('a') ||
+        target?.closest('textarea') ||
+        target?.closest('.no-swipe')
+      ) {
+        return;
+      }
+      mouseStartRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        time: Date.now(),
+      };
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (!mouseStartRef.current) return;
+      const start = mouseStartRef.current;
+      mouseStartRef.current = null;
+
+      const dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      const elapsed = Date.now() - start.time;
+
+      if (Math.abs(dx) >= 65 && Math.abs(dx) > Math.abs(dy) * 1.35 && elapsed < 800) {
+        if (dx < 0) {
+          handleSwipeNavigate('left');
+        } else {
+          handleSwipeNavigate('right');
+        }
+      }
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
+      if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+    };
+  }, [
+    showBrowser,
+    showVision,
+    showFeatures,
+    showNavigation,
+    show2080,
+    showRecentTabs,
+    showHistory,
+    showConfig,
+  ]);
 
   const handleVoiceChange = (newVoice: string) => {
     setVoiceName(newVoice);
@@ -181,11 +509,20 @@ export default function App() {
       />
 
       {/* TOP HEADER: Framed HUD bar with corner reticles, JARVIS orb, Status Pill, PERMS, 500+ APPS & Clock */}
-      <header className="relative z-10 w-full shrink-0">
+      <header className="relative z-10 w-full shrink-0 space-y-1">
         <TopHudHeader
           state={state}
           onOpenFeatures={() => setShowFeatures(true)}
           onOpenPermissions={() => promptPermissionModal('all')}
+        />
+        {/* HORIZONTAL SWIPE CAROUSEL & HUD CUES */}
+        <SwipeNavigationIndicator
+          activeScreen={getActiveScreen()}
+          swipeFeedback={swipeFeedback}
+          onSelectScreen={(screen) => {
+            playHudBeep(920, 0.04);
+            navigateToScreen(screen);
+          }}
         />
       </header>
 
@@ -259,6 +596,41 @@ export default function App() {
       <FakeCallModal />
 
       <BreathingModal />
+
+      <NavigationModal
+        isOpen={showNavigation}
+        onClose={() => setShowNavigation(false)}
+      />
+
+      <Futuristic2080Modal
+        isOpen={show2080}
+        onClose={() => setShow2080(false)}
+      />
+
+      {/* IN-APP STARK WEB BROWSER MODAL */}
+      <InAppBrowserModal
+        isOpen={showBrowser}
+        url={browserUrl}
+        onClose={() => setShowBrowser(false)}
+        onOpenRecentTabs={() => setShowRecentTabs(true)}
+      />
+
+      {/* RECENT TABS & APPS SWITCHER MODAL */}
+      <RecentTabsModal
+        isOpen={showRecentTabs}
+        onClose={() => setShowRecentTabs(false)}
+        onSelectTab={(tab) => {
+          if (tab.type === 'website' && tab.url) {
+            setBrowserUrl(tab.url);
+            setShowBrowser(true);
+          } else if (tab.type === 'screen') {
+            if (tab.screenName === 'navigation') setShowNavigation(true);
+            else if (tab.screenName === 'vision') setShowVision(true);
+            else if (tab.screenName === '2080') setShow2080(true);
+            else if (tab.screenName === 'settings') setShowConfig(true);
+          }
+        }}
+      />
 
       <VisionModal
         isOpen={showVision}

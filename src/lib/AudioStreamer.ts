@@ -4,10 +4,18 @@
  * and dynamic emotional prosody adjustment (speed, pitch, and intonation).
  */
 
-export type EmotionCue = 'normal' | 'whisper' | 'excitement' | 'tiredness' | 'calm';
+export type EmotionCue =
+  | 'normal'
+  | 'whisper'
+  | 'excitement'
+  | 'tiredness'
+  | 'calm'
+  | 'sadness'
+  | 'anger'
+  | 'crying';
 
 export interface ProsodySettings {
-  playbackRate: number; // speed: 0.85x to 1.25x
+  playbackRate: number; // natural 1.0x
   detune: number;       // pitch: -150 to +150 cents
   filterFreq: number;   // intonation warmth / brightness (Hz)
   gain: number;         // volume modulation (0.6 to 1.15)
@@ -23,32 +31,53 @@ export const PROSODY_PRESETS: Record<EmotionCue, ProsodySettings> = {
     emotion: 'normal',
   },
   whisper: {
-    playbackRate: 0.92,
+    playbackRate: 1.0,
     detune: -25,
     filterFreq: 4200,
-    gain: 0.76,
+    gain: 0.85,
     emotion: 'whisper',
   },
   excitement: {
-    playbackRate: 1.15,
-    detune: 75,
-    filterFreq: 14000,
-    gain: 1.10,
+    playbackRate: 1.0,
+    detune: 50,
+    filterFreq: 13000,
+    gain: 1.05,
     emotion: 'excitement',
   },
   tiredness: {
-    playbackRate: 0.88,
-    detune: -50,
-    filterFreq: 3400,
-    gain: 0.82,
+    playbackRate: 1.0,
+    detune: -30,
+    filterFreq: 4000,
+    gain: 0.90,
     emotion: 'tiredness',
   },
   calm: {
-    playbackRate: 0.96,
-    detune: -10,
-    filterFreq: 8500,
-    gain: 0.95,
+    playbackRate: 1.0,
+    detune: 0,
+    filterFreq: 9000,
+    gain: 1.0,
     emotion: 'calm',
+  },
+  sadness: {
+    playbackRate: 1.0,
+    detune: -40,
+    filterFreq: 3800,
+    gain: 0.88,
+    emotion: 'sadness',
+  },
+  crying: {
+    playbackRate: 1.0,
+    detune: -55,
+    filterFreq: 3200,
+    gain: 0.82,
+    emotion: 'crying',
+  },
+  anger: {
+    playbackRate: 1.0,
+    detune: 30,
+    filterFreq: 12000,
+    gain: 1.08,
+    emotion: 'anger',
   },
 };
 
@@ -94,6 +123,7 @@ export class AudioStreamer {
       this.currentProsody = {
         ...this.currentProsody,
         ...cueOrSettings,
+        playbackRate: 1.0,
       };
     }
   }
@@ -255,6 +285,14 @@ export class AudioStreamer {
     await this.initOutput();
     if (!this.outputContext) return;
 
+    if (this.outputContext.state === 'suspended') {
+      try {
+        await this.outputContext.resume();
+      } catch (e) {
+        console.warn('AudioContext resume error:', e);
+      }
+    }
+
     const uint8Array = this.base64ToUint8Array(base64PCM16);
     const int16Array = new Int16Array(
       uint8Array.buffer,
@@ -274,31 +312,20 @@ export class AudioStreamer {
     const source = this.outputContext.createBufferSource();
     source.buffer = audioBuffer;
 
-    // Apply dynamic prosody (speed & pitch)
-    source.playbackRate.value = this.currentProsody.playbackRate;
-    if (source.detune) {
-      source.detune.value = this.currentProsody.detune;
-    }
+    // Strictly locked at 1.0x normal speech speed - never faster, never slower
+    source.playbackRate.value = 1.0;
 
-    // Apply intonation biquad filter (warmth / intimacy / brightness)
-    const filterNode = this.outputContext.createBiquadFilter();
-    filterNode.type = 'lowpass';
-    filterNode.frequency.value = this.currentProsody.filterFreq;
-
-    // Apply dynamic gain (whisper softness or excitement projection)
-    const gainNode = this.outputContext.createGain();
-    gainNode.gain.value = this.currentProsody.gain;
-
-    source.connect(filterNode);
-    filterNode.connect(gainNode);
-    gainNode.connect(this.outputContext.destination);
+    // Connect directly to destination for crystal-clear, unmuffled speech
+    source.connect(this.outputContext.destination);
 
     const currentTime = this.outputContext.currentTime;
-    // Calculate scheduled duration accounting for adjusted playback rate
-    const scheduledDuration = audioBuffer.duration / Math.max(0.2, this.currentProsody.playbackRate);
-    const startTime = Math.max(currentTime + 0.015, this.nextStartTime);
+    // Prevent backlog if previous turn ended
+    if (this.nextStartTime < currentTime) {
+      this.nextStartTime = currentTime;
+    }
+    const startTime = this.nextStartTime;
     source.start(startTime);
-    this.nextStartTime = startTime + scheduledDuration;
+    this.nextStartTime = startTime + audioBuffer.duration;
 
     this.activeSources.add(source);
     if (!this.isPlaying) {

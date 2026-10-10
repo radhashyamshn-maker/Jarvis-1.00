@@ -10,6 +10,8 @@ import {
   Wind,
   Music,
   MapPin,
+  Navigation,
+  Compass,
   Clock,
   Battery,
   Wifi,
@@ -22,9 +24,20 @@ import {
   Play,
   RotateCw,
   Cpu,
+  Radio,
   Tv,
   FileText,
   Volume2,
+  Droplets,
+  Activity,
+  Film,
+  BookOpen,
+  Trash2,
+  Receipt,
+  Timer,
+  Globe,
+  Star,
+  Flame,
 } from 'lucide-react';
 import { executeTool } from '../lib/tools';
 import { specialEvents } from '../lib/specialEvents';
@@ -66,9 +79,11 @@ export const FeatureMatrixModal: React.FC<FeatureMatrixModalProps> = ({
 
   const categories = [
     'All',
-    'Tone Matching Matrix',
-    'Emergency & Safety',
+    'Year 2080 Stark Suite',
+    'Science & Knowledge',
+    'Productivity & Tools',
     'Health & Wellness',
+    'Emergency & Safety',
     'Apps & System',
     'Media & Fun',
     'Finance & Travel',
@@ -76,6 +91,236 @@ export const FeatureMatrixModal: React.FC<FeatureMatrixModalProps> = ({
   ];
 
   const features: FeatureItem[] = [
+    // Year 2080 Stark Suite
+    {
+      id: 'quantum_arc_core_2080',
+      name: 'Zero-Point Quantum Core 2080',
+      category: 'Year 2080 Stark Suite',
+      desc: 'Engage 1.21 GW / 2.40 GW Overdrive plasma flux & antimatter telemetry',
+      icon: Zap,
+      action: () => {
+        specialEvents.emit('open_2080_modal', { tab: 'quantum' });
+        onClose();
+      },
+    },
+    {
+      id: 'neural_synapse_2080',
+      name: 'Neural Brainwave Synapse',
+      category: 'Year 2080 Stark Suite',
+      desc: 'Direct acoustic Alpha (10Hz), Theta (6Hz) & Gamma (40Hz) brainwave harmonics',
+      icon: Radio,
+      action: () => {
+        specialEvents.emit('open_2080_modal', { tab: 'neural' });
+        onClose();
+      },
+    },
+    {
+      id: 'nanite_vitals_2080',
+      name: 'Nanite Biometric Vitals Scanner',
+      category: 'Year 2080 Stark Suite',
+      desc: 'Cellular oxygenation (SpO2), heart rate, cortisol stress & bio-aura resonance',
+      icon: Heart,
+      action: () => {
+        specialEvents.emit('open_2080_modal', { tab: 'biometrics' });
+        onClose();
+      },
+    },
+    {
+      id: 'orbital_relay_2080',
+      name: 'Stark Orbital Satellite Uplink',
+      category: 'Year 2080 Stark Suite',
+      desc: '11ms deep space geostationary ping & zero-trust planetary firewall',
+      icon: Navigation,
+      action: () => {
+        specialEvents.emit('open_2080_modal', { tab: 'orbital' });
+        onClose();
+      },
+    },
+    {
+      id: 'nanite_self_repair_2080',
+      name: 'Autonomous Nanite Self-Healing',
+      category: 'Year 2080 Stark Suite',
+      desc: 'Deploy sub-nanite hardware de-dusting, acoustic cleaning & circuit repair',
+      icon: RotateCw,
+      action: () => {
+        specialEvents.emit('open_2080_modal', { tab: 'nanite' });
+        onClose();
+      },
+    },
+    {
+      id: 'auth_matrix_2080',
+      name: '2080 Master Authorization Matrix',
+      category: 'Year 2080 Stark Suite',
+      desc: 'Calibrate all 7 futuristic permissions & quantum hardware buses to 100%',
+      icon: ShieldAlert,
+      action: () => {
+        specialEvents.emit('open_2080_modal', { tab: 'permissions' });
+        onClose();
+      },
+    },
+
+    // Science & Knowledge
+    {
+      id: 'currency_converter',
+      name: 'Currency & Gold Benchmark',
+      category: 'Science & Knowledge',
+      desc: 'Convert USD, INR, EUR, GBP, AED and 24K Gold grams instantly',
+      icon: DollarSign,
+      action: async () => {
+        const res = await executeTool('calculateCurrencyConvert', { amount: 100, from: 'USD', to: 'INR' });
+        showToast(res.message);
+      },
+    },
+    {
+      id: 'wiki_dossier',
+      name: 'Wikipedia Knowledge Dossier',
+      category: 'Science & Knowledge',
+      desc: 'Deep encyclopedic search for inventions, science, history & leaders',
+      icon: BookOpen,
+      action: async () => {
+        const res = await executeTool('searchWikipedia', { topic: 'Artificial Intelligence' });
+        showToast(res.message);
+      },
+    },
+    {
+      id: 'world_clock_telemetry',
+      name: 'Global Timezone Radar',
+      category: 'Science & Knowledge',
+      desc: 'Live clocks across New York, London, Tokyo, Dubai, Paris & Delhi',
+      icon: Globe,
+      action: async () => {
+        const res = await executeTool('getWorldClock', {});
+        showToast(res.message);
+      },
+    },
+
+    // Productivity & Tools
+    {
+      id: 'pomodoro_sprint',
+      name: '25m Pomodoro Focus Sprint',
+      category: 'Productivity & Tools',
+      desc: 'Engage laser-focused deep work sprint with focus acoustic cues',
+      icon: Timer,
+      action: async () => {
+        const res = await executeTool('startPomodoroTimer', { taskName: 'Stark Architecture' });
+        showToast(res.message);
+      },
+    },
+    {
+      id: 'expense_tracker',
+      name: 'Daily Expense Ledger',
+      category: 'Productivity & Tools',
+      desc: 'Log and organize daily expenditures by category and notes',
+      icon: Receipt,
+      action: async () => {
+        const res = await executeTool('addExpenseLog', { amount: 450, category: 'Food', note: 'Healthy Lunch' });
+        showToast(res.message);
+      },
+    },
+    {
+      id: 'storage_ram_cleaner',
+      name: 'Storage & RAM Cache Purge',
+      category: 'Productivity & Tools',
+      desc: 'Deep clean cache memory and boost available system RAM',
+      icon: Trash2,
+      action: async () => {
+        const res = await executeTool('cleanStorageJunk', {});
+        showToast(res.message);
+      },
+    },
+    {
+      id: 'haptic_feedback_shock',
+      name: 'Tactile Haptic Shockwave',
+      category: 'Productivity & Tools',
+      desc: 'Discharge custom vibration pulses (Heartbeat, SOS, Repulsor)',
+      icon: Activity,
+      action: async () => {
+        const res = await executeTool('triggerHapticPulse', { pattern: 'repulsor' });
+        showToast(res.message);
+      },
+    },
+
+    // Health & Wellness
+    {
+      id: 'hydration_tracker',
+      name: 'Daily Water Hydration Log',
+      category: 'Health & Wellness',
+      desc: 'Log glasses of water towards the 8-glass daily vitality goal',
+      icon: Droplets,
+      action: async () => {
+        const res = await executeTool('trackHydration', { glasses: 1 });
+        showToast(res.message);
+      },
+    },
+    {
+      id: 'bmi_health_calc',
+      name: 'BMI & Body Fat Telemetry',
+      category: 'Health & Wellness',
+      desc: 'Calculate Body Mass Index and ideal weight targets',
+      icon: Activity,
+      action: async () => {
+        const res = await executeTool('calculateBMI', { weightKg: 70, heightCm: 175 });
+        showToast(res.message);
+      },
+    },
+
+    // Media & Fun - Sound Effects & Oracle
+    {
+      id: 'repulsor_sound',
+      name: 'Repulsor Blast Cannon Sound',
+      category: 'Media & Fun',
+      desc: 'Acoustic Stark repulsor beam sonic blast via Web Audio API',
+      icon: Flame,
+      action: async () => {
+        const res = await executeTool('playStarkSoundEffect', { effect: 'repulsor' });
+        showToast(res.message);
+      },
+    },
+    {
+      id: 'arc_startup_sound',
+      name: 'Arc Reactor Startup Hum',
+      category: 'Media & Fun',
+      desc: 'Resonant sub-harmonic power up hum from Iron Man suit',
+      icon: Zap,
+      action: async () => {
+        const res = await executeTool('playStarkSoundEffect', { effect: 'arc_startup' });
+        showToast(res.message);
+      },
+    },
+    {
+      id: 'movie_oracle',
+      name: 'Movie Oracle Recommender',
+      category: 'Media & Fun',
+      desc: 'Curated recommendations across Hollywood, Bollywood & Sci-Fi',
+      icon: Film,
+      action: async () => {
+        const res = await executeTool('recommendMovie', { genre: 'Sci-Fi' });
+        showToast(res.message);
+      },
+    },
+    {
+      id: 'daily_motivation_quote',
+      name: 'Tony Stark Motivation of the Day',
+      category: 'Media & Fun',
+      desc: 'Inspiring quotes from Tony Stark and visionary innovators',
+      icon: Star,
+      action: async () => {
+        const res = await executeTool('getDailyMotivation', {});
+        showToast(res.message);
+      },
+    },
+    {
+      id: 'zodiac_horoscope',
+      name: 'Zodiac Cosmic Telemetry',
+      category: 'Media & Fun',
+      desc: 'Astrological guidance and planetary alignments for your sign',
+      icon: Sparkles,
+      action: async () => {
+        const res = await executeTool('getHoroscopeInsight', { sign: 'Leo' });
+        showToast(res.message);
+      },
+    },
+
     // Emergency & Safety
     {
       id: 'fake_call',
@@ -245,6 +490,28 @@ export const FeatureMatrixModal: React.FC<FeatureMatrixModalProps> = ({
     },
 
     // Finance & Travel
+    {
+      id: 'stark_navigation',
+      name: 'Stark GPS & Live Navigation',
+      category: 'Finance & Travel',
+      desc: 'Realtime GPS turn-by-turn routing, live traffic, and Google Maps directions',
+      icon: Navigation,
+      action: () => {
+        specialEvents.emit('open_navigation', { destination: 'Connaught Place, Delhi' });
+        onClose();
+      },
+    },
+    {
+      id: 'nearby_radar',
+      name: 'Nearby Amenities Radar',
+      category: 'Finance & Travel',
+      desc: 'Find nearest petrol pumps, hospitals, EV charging, ATMs, and restaurants',
+      icon: Compass,
+      action: () => {
+        specialEvents.emit('open_navigation', { destination: 'Nearest Petrol Pump' });
+        onClose();
+      },
+    },
     {
       id: 'upi_pay',
       name: 'UPI Quick Pay',
