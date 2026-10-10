@@ -601,11 +601,16 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-[#ff1e42] animate-spin-slow" />
             <div>
-              <h3 className="font-mono text-sm tracking-widest uppercase font-bold text-white">
-                CORE SETTINGS & ALL PERMISSIONS
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-mono text-sm tracking-widest uppercase font-bold text-white">
+                  CORE SETTINGS & PERMISSIONS
+                </h3>
+                <span className="px-1.5 py-0.5 rounded bg-[#ff1e42]/20 text-[#ff708a] border border-[#ff1e42]/40 text-[9px] font-mono font-bold">
+                  DEV: SATYAM SAHANI
+                </span>
+              </div>
               <span className="text-[10px] font-mono text-[#ff708a]">
-                माइक्रोफोन, कैमरा, लोकेशन, ओवरले, स्क्रीन व ऑल फाइल्स
+                Developed by Satyam Sahani • Stark Neural Core
               </span>
             </div>
           </div>
@@ -957,9 +962,13 @@ cd android && ./gradlew assembleDebug
           )}
         </AnimatePresence>
 
+        <div className="mt-2.5 text-center text-[10px] font-mono text-slate-400">
+          Crafted & Engineered by <span className="text-[#ff708a] font-bold">Satyam Sahani (सत्यम साहनी)</span>
+        </div>
+
         <button
           onClick={onClose}
-          className="w-full mt-3 py-2.5 rounded-xl bg-gradient-to-r from-[#990022] to-[#ff1e42] text-white font-mono text-xs tracking-wider uppercase font-semibold shadow-[0_0_20px_rgba(255,30,66,0.4)]"
+          className="w-full mt-2.5 py-2.5 rounded-xl bg-gradient-to-r from-[#990022] to-[#ff1e42] text-white font-mono text-xs tracking-wider uppercase font-semibold shadow-[0_0_20px_rgba(255,30,66,0.4)]"
         >
           APPLY & CLOSE HUD
         </button>

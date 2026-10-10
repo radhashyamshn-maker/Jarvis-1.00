@@ -6,9 +6,17 @@
 /* Subtle Stark HUD Grid Overlay */
 .hud-grid {
   background-image: 
-    linear-gradient(to right, rgba(255, 30, 66, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 30, 66, 0.04) 1px, transparent 1px);
+    linear-gradient(to right, rgba(255, 30, 66, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 30, 66, 0.05) 1px, transparent 1px);
   background-size: 32px 32px;
+}
+
+/* Major Tactical HUD Grid (128px) */
+.hud-grid-major {
+  background-image:
+    linear-gradient(to right, rgba(255, 30, 66, 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 30, 66, 0.12) 1px, transparent 1px);
+  background-size: 128px 128px;
 }
 
 /* Glassmorphism Stark Panels */

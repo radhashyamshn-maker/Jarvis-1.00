@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Home,
   Grid,
+  FileCode,
   Eye,
   Navigation,
   Cpu,
@@ -26,6 +27,7 @@ interface SwipeNavigationIndicatorProps {
 const SCREENS: { id: ScreenId; label: string; icon: React.FC<{ className?: string }> }[] = [
   { id: 'home', label: 'CORE', icon: Home },
   { id: 'features', label: 'APPS', icon: Grid },
+  { id: 'artifacts', label: 'ARTIFACTS', icon: FileCode },
   { id: 'vision', label: 'VISION', icon: Eye },
   { id: 'navigation', label: 'NAV', icon: Navigation },
   { id: '2080', label: '2080', icon: Cpu },

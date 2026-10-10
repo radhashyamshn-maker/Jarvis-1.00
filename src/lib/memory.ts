@@ -16,13 +16,15 @@ export interface JarvisMemory {
 const MEMORY_KEY = 'jarvis_quantum_memory_v1';
 
 const defaultMemory: JarvisMemory = {
-  userName: 'Sir',
+  userName: 'Satyam Sahani',
   wakeWord: 'Jarvis',
   preferredVoice: 'Aoede',
   notes: [],
   reminders: [],
   facts: {
     identity: 'JARVIS Stark-Tech Advanced Personal Assistant',
+    developer: 'Satyam Sahani (सत्यम साहनी)',
+    creator: 'Satyam Sahani (सत्यम साहनी)',
     language: 'Hinglish (Hindi + English mix)',
   },
   routines: {
@@ -35,7 +37,18 @@ export function getMemory(): JarvisMemory {
   try {
     const raw = localStorage.getItem(MEMORY_KEY);
     if (!raw) return defaultMemory;
-    return { ...defaultMemory, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    const mergedFacts = {
+      ...defaultMemory.facts,
+      ...(parsed.facts || {}),
+      developer: 'Satyam Sahani (सत्यम साहनी)',
+      creator: 'Satyam Sahani (सत्यम साहनी)',
+    };
+    return {
+      ...defaultMemory,
+      ...parsed,
+      facts: mergedFacts,
+    };
   } catch (err) {
     console.warn('Failed to load memory:', err);
     return defaultMemory;

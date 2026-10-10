@@ -13,6 +13,7 @@ import {
 } from './audioEffects';
 import { promptPermissionModal } from './permissions';
 import type { SassLevel } from './systemPrompt';
+import { createNewArtifact, getStoredArtifacts, type ArtifactType } from './artifacts';
 
 export interface ToolExecutionEvent {
   name: string;
@@ -701,6 +702,28 @@ export const functionDeclarations: FunctionDeclaration[] = [
         },
       },
       required: ['level'],
+    },
+  },
+  {
+    name: 'openArtifactsStudio',
+    description: 'Open the Stark Artifacts Studio workspace to view, interact with, copy, or download engineering blueprints, code scripts, technical dossiers, and SVG diagrams',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {},
+    },
+  },
+  {
+    name: 'generateStarkArtifact',
+    description: 'Create and save an interactive Stark Artifact (engineering blueprint, code script, document, or visual SVG diagram) in the Artifacts Studio workspace',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        title: { type: Type.STRING, description: 'Title of the artifact' },
+        type: { type: Type.STRING, description: '"blueprint", "code", "document", or "svg"' },
+        description: { type: Type.STRING, description: 'Short summary of the artifact' },
+        content: { type: Type.STRING, description: 'The complete code, markdown, SVG markup or schematic content' },
+      },
+      required: ['title', 'type', 'content'],
     },
   },
 ];
@@ -1674,6 +1697,46 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
           ok: true,
           level: targetLevel,
           message: `Personality shifted to ${targetLevel}. Live session prompt updated, Sir!`,
+        };
+        break;
+      }
+
+      case 'openArtifactsStudio': {
+        specialEvents.emit('open_artifacts', {});
+        playSuccessChime();
+        result = {
+          ok: true,
+          message: 'Stark Artifacts Studio launched, Sir. All schematics, code scripts, and dossiers are ready.',
+        };
+        break;
+      }
+
+      case 'generateStarkArtifact': {
+        const title = (args.title as string) || 'New Stark Artifact';
+        const rawType = ((args.type as string) || 'document').toLowerCase();
+        let artifactType: ArtifactType = 'document';
+        if (rawType.includes('code') || rawType.includes('script')) artifactType = 'code';
+        else if (rawType.includes('blue') || rawType.includes('schema')) artifactType = 'blueprint';
+        else if (rawType.includes('svg') || rawType.includes('vector') || rawType.includes('visual')) artifactType = 'svg';
+
+        const description = (args.description as string) || `Stark Tech ${artifactType} generated for Sir.`;
+        const content = (args.content as string) || '// Stark Artifact Content';
+
+        const artifact = createNewArtifact({
+          title,
+          type: artifactType,
+          description,
+          content,
+        });
+
+        specialEvents.emit('open_artifacts', { artifactId: artifact.id });
+        playSuccessChime();
+        result = {
+          ok: true,
+          artifactId: artifact.id,
+          title: artifact.title,
+          type: artifact.type,
+          message: `Stark Artifact "${artifact.title}" successfully created and saved in Artifacts Studio, Sir!`,
         };
         break;
       }

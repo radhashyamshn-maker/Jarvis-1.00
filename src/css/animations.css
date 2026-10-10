@@ -88,3 +88,20 @@
   animation: ambientPulse 4s ease-in-out infinite;
   will-change: transform, opacity;
 }
+
+/* Subtle Stark HUD Grid Breathing Cycle */
+@keyframes hudGridBreathe {
+  0%, 100% {
+    opacity: 0.38;
+    filter: drop-shadow(0 0 1px rgba(255, 30, 66, 0.12));
+  }
+  50% {
+    opacity: 0.65;
+    filter: drop-shadow(0 0 5px rgba(255, 30, 66, 0.38));
+  }
+}
+
+.animate-hud-grid-breathe {
+  animation: hudGridBreathe 4.6s ease-in-out infinite;
+  will-change: opacity, filter;
+}

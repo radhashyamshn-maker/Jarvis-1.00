@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AlertCircle, X, Sparkles } from 'lucide-react';
 import { LiveSession, type SessionState } from './lib/LiveSession';
 import { ArcReactorCore } from './components/ArcReactorCore';
+import { StarkHudGrid } from './components/StarkHudGrid';
 import { TopHudHeader } from './components/TopHudHeader';
 import { BottomDock } from './components/BottomDock';
 import { VisionModal } from './components/VisionModal';
@@ -13,6 +14,7 @@ import { FakeCallModal } from './components/FakeCallModal';
 import { BreathingModal } from './components/BreathingModal';
 import { NavigationModal } from './components/NavigationModal';
 import { Futuristic2080Modal } from './components/Futuristic2080Modal';
+import { ArtifactsModal } from './components/ArtifactsModal';
 import { InAppBrowserModal } from './components/InAppBrowserModal';
 import { RecentTabsModal, type RecentTabItem } from './components/RecentTabsModal';
 import { SwipeNavigationIndicator } from './components/SwipeNavigationIndicator';
@@ -26,6 +28,7 @@ import type { SassLevel } from './lib/systemPrompt';
 export type ScreenId =
   | 'home'
   | 'features'
+  | 'artifacts'
   | 'vision'
   | 'navigation'
   | '2080'
@@ -37,6 +40,7 @@ export type ScreenId =
 const SCREEN_CYCLE: ScreenId[] = [
   'home',
   'features',
+  'artifacts',
   'vision',
   'navigation',
   '2080',
@@ -48,6 +52,7 @@ const SCREEN_CYCLE: ScreenId[] = [
 const SCREEN_NAMES: Record<ScreenId, string> = {
   home: 'Main Interface (Core)',
   features: '500+ Apps Matrix',
+  artifacts: 'Stark Artifacts Studio',
   vision: 'Vision Sensor',
   navigation: 'Stark GPS Navigation',
   '2080': 'Year 2080 Matrix',
@@ -69,6 +74,7 @@ export default function App() {
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [showConfig, setShowConfig] = useState<boolean>(false);
   const [showFeatures, setShowFeatures] = useState<boolean>(false);
+  const [showArtifacts, setShowArtifacts] = useState<boolean>(false);
   const [showNavigation, setShowNavigation] = useState<boolean>(false);
   const [show2080, setShow2080] = useState<boolean>(false);
   const [showBrowser, setShowBrowser] = useState<boolean>(false);
@@ -140,6 +146,11 @@ export default function App() {
       setShowRecentTabs(true);
     });
 
+    // Subscribe to artifacts studio events
+    const unsubArtifacts = specialEvents.on('open_artifacts', () => {
+      setShowArtifacts(true);
+    });
+
     // Subscribe to device navigation commands
     const unsubDevNav = specialEvents.on('device_navigate', (data: any) => {
       const act = (data?.action || '').toLowerCase();
@@ -156,6 +167,7 @@ export default function App() {
           if (t) return false;
           return t;
         });
+        setShowArtifacts((a) => { if (a) return false; return a; });
         setShowVision((v) => { if (v) return false; return v; });
         setShowHistory((h) => { if (h) return false; return h; });
         setShowConfig((c) => { if (c) return false; return c; });
@@ -166,6 +178,7 @@ export default function App() {
       } else if (act === 'home') {
         setShowBrowser(false);
         setShowRecentTabs(false);
+        setShowArtifacts(false);
         setShowVision(false);
         setShowHistory(false);
         setShowConfig(false);
@@ -187,6 +200,7 @@ export default function App() {
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
       } else if (act === 'open_screen') {
         if (scr.includes('setting') || scr.includes('config')) setShowConfig(true);
+        else if (scr.includes('artifact') || scr.includes('blueprint') || scr.includes('studio')) setShowArtifacts(true);
         else if (scr.includes('vision') || scr.includes('camera')) setShowVision(true);
         else if (scr.includes('history')) setShowHistory(true);
         else if (scr.includes('app') || scr.includes('feature')) setShowFeatures(true);
@@ -198,6 +212,7 @@ export default function App() {
     return () => {
       unsubscribe();
       unsubPersonality();
+      unsubArtifacts();
       unsubNav();
       unsub2080();
       unsubBrowser();
@@ -220,6 +235,7 @@ export default function App() {
   // Screen Management for Gesture & Modal Navigation
   const getActiveScreen = (): ScreenId => {
     if (showBrowser) return 'browser';
+    if (showArtifacts) return 'artifacts';
     if (showVision) return 'vision';
     if (showFeatures) return 'features';
     if (showNavigation) return 'navigation';
@@ -232,6 +248,7 @@ export default function App() {
 
   const closeAllScreens = () => {
     setShowBrowser(false);
+    setShowArtifacts(false);
     setShowVision(false);
     setShowFeatures(false);
     setShowNavigation(false);
@@ -247,6 +264,8 @@ export default function App() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (target === 'features') {
       setShowFeatures(true);
+    } else if (target === 'artifacts') {
+      setShowArtifacts(true);
     } else if (target === 'vision') {
       setShowVision(true);
     } else if (target === 'navigation') {
@@ -559,17 +578,8 @@ export default function App() {
 
   return (
     <main className="relative flex flex-col justify-between h-screen w-screen max-w-lg mx-auto bg-[#060104] text-slate-100 overflow-hidden select-none px-3.5 safe-top safe-bottom">
-      {/* Background Stark HUD Grid Overlay */}
-      <div className="absolute inset-0 hud-grid pointer-events-none opacity-60 z-0" />
-
-      {/* Ambient Vignette & Core Lighting */}
-      <div
-        className="absolute inset-0 pointer-events-none z-0"
-        style={{
-          background:
-            'radial-gradient(circle at 50% 50%, rgba(255, 30, 66, 0.12) 0%, rgba(6, 1, 4, 0.95) 75%)',
-        }}
-      />
+      {/* Background Stark HUD Grid Overlay with subtle breathing glow synchronized with audio input level */}
+      <StarkHudGrid audioLevel={audioLevel} state={state} />
 
       {/* TOP HEADER: Framed HUD bar with corner reticles, JARVIS orb, Status Pill, PERMS, 500+ APPS & Clock */}
       <header className="relative z-10 w-full shrink-0 space-y-1">
@@ -668,6 +678,11 @@ export default function App() {
       <Futuristic2080Modal
         isOpen={show2080}
         onClose={() => setShow2080(false)}
+      />
+
+      <ArtifactsModal
+        isOpen={showArtifacts}
+        onClose={() => setShowArtifacts(false)}
       />
 
       {/* IN-APP STARK WEB BROWSER MODAL */}

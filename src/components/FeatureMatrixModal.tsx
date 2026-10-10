@@ -38,6 +38,7 @@ import {
   Globe,
   Star,
   Flame,
+  FileCode,
 } from 'lucide-react';
 import { executeTool } from '../lib/tools';
 import { specialEvents } from '../lib/specialEvents';
@@ -155,6 +156,17 @@ export const FeatureMatrixModal: React.FC<FeatureMatrixModalProps> = ({
       icon: ShieldAlert,
       action: () => {
         specialEvents.emit('open_2080_modal', { tab: 'permissions' });
+        onClose();
+      },
+    },
+    {
+      id: 'stark_artifacts_studio',
+      name: 'Stark Artifacts Studio',
+      category: 'Productivity & Tools',
+      desc: 'Interactive engineering blueprints, code scripts, dossiers & SVG diagrams',
+      icon: FileCode,
+      action: () => {
+        specialEvents.emit('open_artifacts', {});
         onClose();
       },
     },

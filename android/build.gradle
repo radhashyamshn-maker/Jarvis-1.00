@@ -16,6 +16,18 @@ allprojects {
         google()
         mavenCentral()
     }
+
+    configurations.all {
+        resolutionStrategy {
+            force "androidx.core:core:${rootProject.ext.androidxCoreVersion}"
+            force "androidx.appcompat:appcompat:${rootProject.ext.androidxAppCompatVersion}"
+            force "androidx.activity:activity:${rootProject.ext.androidxActivityVersion}"
+            force "androidx.fragment:fragment:${rootProject.ext.androidxFragmentVersion}"
+            force "androidx.coordinatorlayout:coordinatorlayout:${rootProject.ext.androidxCoordinatorLayoutVersion}"
+            force "androidx.webkit:webkit:${rootProject.ext.androidxWebkitVersion}"
+            force "androidx.core:core-splashscreen:${rootProject.ext.coreSplashScreenVersion}"
+        }
+    }
 }
 
 task clean(type: Delete) {
